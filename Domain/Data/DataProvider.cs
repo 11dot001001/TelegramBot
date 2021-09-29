@@ -11,7 +11,7 @@ namespace Domain.Data
 {
 	public class DataProvider
 	{
-		private const int _timeDifferent = 0;
+		private const int _timeDifferent = 3;
 
 		private readonly DataContext _dataContext;
 		private readonly ITelegramBotClient _telegramBotClient;

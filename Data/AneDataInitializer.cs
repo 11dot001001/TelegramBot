@@ -124,6 +124,7 @@ namespace Data
 			LogicPracticum,
 			LogicIndividual,
 			ProjectActivityFundamentalsPracticum,
+			ProjectActivityFundamentalsIndividual,
 			TheoreticalLinguisticsFundamentals_1,
 			TheoreticalLinguisticsFundamentals_2,
 			TheoreticalLinguisticsFundamentalsLecture,

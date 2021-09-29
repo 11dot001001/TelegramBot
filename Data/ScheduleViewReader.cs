@@ -11,49 +11,32 @@ namespace Data
 
 		static public string GetWeekDayString(DayOfWeek dayOfWeek)
 		{
-			switch (dayOfWeek)
+			return dayOfWeek switch
 			{
-				case DayOfWeek.Friday:
-					return "Пятница";
-				case DayOfWeek.Monday:
-					return "Понедельник";
-				case DayOfWeek.Saturday:
-					return "Суббота";
-				case DayOfWeek.Sunday:
-					return "Воскресенье";
-				case DayOfWeek.Thursday:
-					return "Четверг";
-				case DayOfWeek.Tuesday:
-					return "Вторник";
-				case DayOfWeek.Wednesday:
-					return "Среда";
-				default:
-					return string.Empty;
-			}
+				DayOfWeek.Friday => "Пятница",
+				DayOfWeek.Monday => "Понедельник",
+				DayOfWeek.Saturday => "Суббота",
+				DayOfWeek.Sunday => "Воскресенье",
+				DayOfWeek.Thursday => "Четверг",
+				DayOfWeek.Tuesday => "Вторник",
+				DayOfWeek.Wednesday => "Среда",
+				_ => string.Empty,
+			};
 		}
 		static public string GetSubjectTypeString(SubjectType subjectType)
 		{
-			switch (subjectType)
+			return subjectType switch
 			{
-				case SubjectType.Lecture:
-					return "(Лк)";
-				case SubjectType.Laboratory:
-					return "(Лб)";
-				case SubjectType.Seminar:
-					return "Семинар";
-				case SubjectType.Exercise:
-					return "Упражнение";
-				case SubjectType.Coursework:
-					return "Курсовая";
-				case SubjectType.ScientificResearch:
-					return "Научная работа";
-				case SubjectType.Individual:
-					return "(Инд)";
-				case SubjectType.Practicum:
-					return "(Пр)";
-				default:
-					return string.Empty;
-			}
+				SubjectType.Lecture => "(Лк)",
+				SubjectType.Laboratory => "(Лб)",
+				SubjectType.Seminar => "Семинар",
+				SubjectType.Exercise => "Упражнение",
+				SubjectType.Coursework => "Курсовая",
+				SubjectType.ScientificResearch => "Научная работа",
+				SubjectType.Individual => "(Инд)",
+				SubjectType.Practicum => "(Пр)",
+				_ => string.Empty,
+			};
 		}
 
 		static public bool GetSchedule(Group group, out string schedule)
@@ -79,7 +62,7 @@ namespace Data
 
 					schedule +=
 					@"`    " + (subject.Order + 1).ToString() + ". " +
-					paritySring + 
+					paritySring +
 					subject.SubjectInstance.Subject.Name + " " +
 					subject.SubjectInstance.Audience + " " +
 					subject.SubjectInstance.Teacher + " " +
@@ -119,14 +102,16 @@ namespace Data
 			if (dayScheduleFields.Count == 0)
 				return null;
 
-			List<ScheduleView> scheduleViewItems = new List<ScheduleView>();
+			List<ScheduleView> scheduleViewItems = new();
 
 			dayScheduleFields.Sort(new Comparison<ScheduleField>((x, y) => x.Order.CompareTo(y.Order)));
 			foreach (ScheduleField subject in dayScheduleFields)
 			{
 				if (subject is ParityDependentScheduleSubject parityDependentSubject)
 				{
-					scheduleViewItems.Add(new ScheduleView(parityDependentSubject.Order, parityDependentSubject.GetSubject(parity)));
+					SubjectInstance subjectInstance = parityDependentSubject.GetSubject(parity);
+					if (subjectInstance != null)
+						scheduleViewItems.Add(new ScheduleView(parityDependentSubject.Order, subjectInstance));
 					continue;
 				}
 				if (subject is ParityIndependentScheduleSubject parityIndependentSubject)
@@ -143,7 +128,7 @@ namespace Data
 			if (dayScheduleFields.Count == 0)
 				return null;
 
-			List<ScheduleView> scheduleViewItems = new List<ScheduleView>();
+			List<ScheduleView> scheduleViewItems = new();
 
 			dayScheduleFields.Sort(new Comparison<ScheduleField>((x, y) => x.Order.CompareTo(y.Order)));
 			foreach (ScheduleField subject in dayScheduleFields)
