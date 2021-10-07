@@ -46,6 +46,8 @@ namespace Domain
 					}
 				case RequestType.Backward:
 					{
+						if(userModel.Requests.Count < 2)
+							return Handle(update, RequestType.Startup);
 						return Handle(update, userModel.Requests[userModel.Requests.Count - 2]);
 					}
 				case RequestType.CreateGroup:

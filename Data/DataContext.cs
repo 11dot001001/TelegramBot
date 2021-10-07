@@ -19,7 +19,6 @@ namespace Database.Data
 			AneDataInitializer.EnsureDataInitialization(modelBuilder);
 		}
 
-		public DbSet<Log> Logs { get; set; }
 		public DbSet<Student> Students { get; set; }
 		public DbSet<Group> Groups { get; set; }
 		public DbSet<SubjectTimeSlot> SubjectTimeSlots { get; set; }
@@ -65,19 +64,8 @@ namespace Database.Data
 			return Groups.Include(x => x.ScheduleSubjects).First(x => x.Id == id);
 		}
 
-		public void AddLog(string log)
-		{
-			Logs.Add(new Log
-			{ 
-				Id = Guid.NewGuid(),
-				Name = log
-			});
-			SaveChanges();
-		}
-
 		public void LoadAll()
 		{
-			Logs.Load();
 			Students.Load();
 			Groups.Load();
 			SubjectTimeSlots.Load();

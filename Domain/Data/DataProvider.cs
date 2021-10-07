@@ -28,7 +28,6 @@ namespace Domain.Data
 			_dataContext.Database.EnsureCreated();
 			_dataContext.LoadAll();
 
-
 			_subjectCalls = _dataContext.SubjectTimeSlots.ToList();
 			_subjectCalls.Sort(new Comparison<SubjectTimeSlot>((x, y) => x.Order.CompareTo(y.Order)));
 			_cachedUserModels = new Dictionary<long, UserModel>();
@@ -36,9 +35,7 @@ namespace Domain.Data
 		}
 
 		public DateTime CorrectedDateTime => DateTime.Now.AddHours(_timeDifferent);
-		public List<SubjectTimeSlot> SubjectCalls => _subjectCalls;
 
-		public void AddLog(string log) => _dataContext.AddLog(log);
 		public UserModel GetUserModel(Message message)
 		{
 			if (_cachedUserModels.TryGetValue(message.From.Id, out UserModel userModel))
@@ -111,11 +108,16 @@ namespace Domain.Data
 			foreach (Group group in _dataContext.Groups)
 			{
 				List<ScheduleView> schedule = ScheduleViewReader.GetSchedule(group, CorrectedDateTime.DayOfWeek, group.Parity(CorrectedDateTime));
-				if (schedule.Select(x => x.Order).Min() == order)
+				ScheduleView subject = schedule.FirstOrDefault(x => x.Order == order);
+				if (subject != null)
 				{
-					ScheduleView subject = schedule.First(x => x.Order == order);
 					foreach (Student user in group.Students)
-						_telegramBotClient.SendTextMessageAsync(user.ChatId, "`Первая пара " + subject.SubjectInstance.Subject.Name + " " + ScheduleViewReader.GetSubjectTypeString(subject.SubjectInstance.SubjectType) + " в " + subject.SubjectInstance.Audience + " аудитории. Ведёт " + subject.SubjectInstance.Teacher + "`.", Telegram.Bot.Types.Enums.ParseMode.Markdown);
+						_telegramBotClient.SendTextMessageAsync(
+							user.ChatId,
+							"`Первая пара " + subject.SubjectInstance.Subject.Name + " " + ScheduleViewReader.GetSubjectTypeString(subject.SubjectInstance.SubjectType) +
+							" в " + subject.SubjectInstance.Audience + " аудитории. Ведёт " + subject.SubjectInstance.Teacher + "`.",
+							Telegram.Bot.Types.Enums.ParseMode.Markdown
+						);
 				}
 			}
 		}
@@ -124,9 +126,9 @@ namespace Domain.Data
 			foreach (Group group in _dataContext.Groups)
 			{
 				List<ScheduleView> schedule = ScheduleViewReader.GetSchedule(group, CorrectedDateTime.DayOfWeek, group.Parity(CorrectedDateTime));
-				if (schedule.Select(x => x.Order).Contains(order))
+				ScheduleView subject = schedule.FirstOrDefault(x => x.Order == order);
+				if (subject != null)
 				{
-					ScheduleView subject = schedule.First(x => x.Order == order);
 					foreach (Student user in group.Students)
 					{
 						ScheduleView nextSubject = schedule.FirstOrDefault(z => z.Order == order + 1);

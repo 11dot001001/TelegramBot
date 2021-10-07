@@ -29,7 +29,6 @@ namespace Domain
 			{
 				if (RequestService.TryGetRequestByMessage(update.Message.Text, out RequestType request))
 				{
-					UserModel userModel = _dataProvider.GetUserModel(update.Message);
 					Responce responce = _requestHandler.Handle(update, request);
 					await _telegramBotClient.SendTextMessageAsync(update.Message.Chat.Id, responce.TextMessage, ParseMode.Markdown, replyMarkup: responce.Keyboard);
 				}

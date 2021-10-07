@@ -1,3 +1,4 @@
+
 FROM mcr.microsoft.com/dotnet/sdk:5.0 AS copier
 WORKDIR /src
 COPY ["Api", "Api/"]
