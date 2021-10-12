@@ -1,7 +1,6 @@
 ﻿using Domain.Data;
 using System;
 using System.Threading.Tasks;
-using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
@@ -10,82 +9,70 @@ namespace Domain
 	public class TelegramMessageHandler
 	{
 		private readonly DataProvider _dataProvider;
-		private readonly ITelegramBotClient _telegramBotClient;
-		private readonly RequestHandler _requestHandler;
+		private readonly RequestRecognizer _requestRecognizer;
+		private readonly TelegramMessageSender _telegramMessageSender;
 
-		public TelegramMessageHandler(DataProvider dataProvider, ITelegramBotClient telegramBotClient, RequestHandler requestHandler)
+		public TelegramMessageHandler(DataProvider dataProvider, RequestRecognizer requestRecognizer, TelegramMessageSender telegramMessageSender)
 		{
 			_dataProvider = dataProvider ?? throw new ArgumentNullException(nameof(dataProvider));
-			_telegramBotClient = telegramBotClient ?? throw new ArgumentNullException(nameof(telegramBotClient));
-			_requestHandler = requestHandler ?? throw new ArgumentNullException(nameof(requestHandler));
+			_requestRecognizer = requestRecognizer ?? throw new ArgumentNullException(nameof(requestRecognizer));
+			_telegramMessageSender = telegramMessageSender ?? throw new ArgumentNullException(nameof(telegramMessageSender));
 		}
 
 		public async Task HandleAsync(Update update)
 		{
-			if (update.Type != UpdateType.Message)
+			if (update.Type != UpdateType.Message && update.Message.Type != MessageType.Text)
 				return;
 
-			if (update.Message.Type == MessageType.Text)
-			{
-				if (RequestService.TryGetRequestByMessage(update.Message.Text, out RequestType request))
-				{
-					Responce responce = _requestHandler.Handle(update, request);
-					await _telegramBotClient.SendTextMessageAsync(update.Message.Chat.Id, responce.TextMessage, ParseMode.Markdown, replyMarkup: responce.Keyboard);
-				}
-				else
-				{
-					UserModel userModel = _dataProvider.GetUserModel(update.Message);
-					if (userModel.Requests.Count == 0)
-					{
-						Responce responce = _requestHandler.Handle(update, RequestType.Startup);
-						await _telegramBotClient.SendTextMessageAsync(update.Message.Chat.Id, responce.TextMessage, ParseMode.Markdown, replyMarkup: responce.Keyboard);
-						return; 
-					}
+			UserModel userModel = _dataProvider.GetUserModel(update.Message);
 
-					switch (userModel.Requests[userModel.Requests.Count - 1])
-					{
-						case RequestType.None:
+			if (_requestRecognizer.TryGetRequestTypeByMessage(update.Message.Text, out RequestType request))
+			{
+				await _telegramMessageSender.SendMessage(userModel, request);
+			}
+			else
+			{
+				if (userModel.Requests.Count == 0)
+				{
+					await _telegramMessageSender.SendMessage(userModel, RequestType.Startup);
+					return;
+				}
+
+				switch (userModel.Requests[userModel.Requests.Count - 1])
+				{
+					case RequestType.CreateGroup:
+						{
+							_dataProvider.PartOnCreateGroup(userModel, update.Message.Text);
+							userModel.Requests.Add(RequestType.InputGroupName);
+							await _telegramMessageSender.SendDateInputRequest(userModel);
 							break;
-						case RequestType.Startup:
+						}
+					case RequestType.InputGroupName:
+						{
+							if (DateTime.TryParse(update.Message.Text, out DateTime dateTime))
+							{
+								userModel.Requests.Add(RequestType.None);
+								_dataProvider.PartOnCreateGroup(userModel, dateTime);
+								await _telegramMessageSender.SendCreationGroupCongratulation(userModel);
+							}
+							else
+								await _telegramMessageSender.SendDateInputError(userModel);
 							break;
-						case RequestType.CreateGroup:
+						}
+					case RequestType.JoinGroup:
+						{
+							Guid.TryParse(update.Message.Text, out Guid groupId);
+							if (_dataProvider.TryToJoinGroup(userModel, groupId))
 							{
-								_dataProvider.PartOnCreateGroup(userModel, update.Message.Text);
-								userModel.Requests.Add(RequestType.InputGroupName);
-								await _telegramBotClient.SendTextMessageAsync(update.Message.Chat.Id, "Введите дату по форме 27.5.2019 .");
-								break;
+								userModel.Requests.Add(RequestType.None);
+								await _telegramMessageSender.SendJoinToGroupCongratulation(userModel);
 							}
-						case RequestType.InputGroupName:
-							{
-								if (DateTime.TryParse(update.Message.Text, out DateTime dateTime))
-								{
-									userModel.Requests.Add(RequestType.None);
-									_dataProvider.PartOnCreateGroup(userModel, dateTime);
-									await _telegramBotClient.SendTextMessageAsync(update.Message.Chat.Id, "Поздравляем. Группа успешно создана.");
-									Responce responce = _requestHandler.Handle(update, RequestType.GroupMenu);
-									await _telegramBotClient.SendTextMessageAsync(update.Message.Chat.Id, responce.TextMessage, ParseMode.Markdown, replyMarkup: responce.Keyboard);
-								}
-								else
-									await _telegramBotClient.SendTextMessageAsync(update.Message.Chat.Id, "Дату нормально введи.");
-								break;
-							}
-						case RequestType.JoinGroup:
-							{
-								Guid.TryParse(update.Message.Text, out Guid groupId);
-								if (_dataProvider.TryToJoinGroup(userModel, groupId))
-								{
-									userModel.Requests.Add(RequestType.None);
-									await _telegramBotClient.SendTextMessageAsync(update.Message.Chat.Id, "Поздравляем. Вы успешно присоединились к группе.");
-									Responce responce = _requestHandler.Handle(update, RequestType.GroupMenu);
-									await _telegramBotClient.SendTextMessageAsync(update.Message.Chat.Id, responce.TextMessage, ParseMode.Markdown, replyMarkup: responce.Keyboard);
-								}
-								else
-									await _telegramBotClient.SendTextMessageAsync(update.Message.Chat.Id, "Не получилось присоединиться к группе.");
-								break;
-							}
-						default:
+							else
+								await _telegramMessageSender.SendJoinToGroupException(userModel);
 							break;
-					}
+						}
+					default:
+						break;
 				}
 			}
 		}

@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using System;
 
-namespace Data
+namespace Data.Initializers
 {
 	public static class LehaDataInitializer
 	{

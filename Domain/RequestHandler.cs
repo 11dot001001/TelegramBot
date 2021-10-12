@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using Telegram.Bot.Types.ReplyMarkups;
-using Telegram.Bot.Types;
 using Domain.Data;
+using Database.Data.Model;
 
 namespace Domain
 {
@@ -17,23 +17,22 @@ namespace Domain
 			_keyboardService = keyboardService ?? throw new ArgumentNullException(nameof(keyboardService));
 		}
 
-		private string GetGroupInfo(UserModel userModel)
+		private string GetGroupInfo(Group group)
 		{
-			string parity = userModel.Student.Group.Parity(_dataProvider.CorrectedDateTime) ? "числитель" : "знаменатель";
-			DateTime startEducation = userModel.Student.Group.StartEducation;
-			int weekCount = ((_dataProvider.CorrectedDateTime - startEducation).Days + ((int)startEducation.DayOfWeek - 1)) / 7 + 1;
+			string parity = group.Parity(_dataProvider.MoscowDateTime) ? "числитель" : "знаменатель";
+			DateTime startEducation = group.StartEducation;
+			int weekCount = ((_dataProvider.MoscowDateTime - startEducation).Days + ((int)startEducation.DayOfWeek - 1)) / 7 + 1;
 			string result =
 			"*Информация о группе:*\n" +
-			"`Название: " + userModel.Student.Group.Name + ".\n" +
-			"Начало семестра: " + userModel.Student.Group.StartEducation.ToShortDateString() + ".\n" +
-			"Номер для приглашения: " + userModel.Student.Group.Id + ".\n" +
+			"`Название: " + group.Name + ".\n" +
+			"Начало семестра: " + group.StartEducation.ToShortDateString() + ".\n" +
+			"Номер для приглашения: " + group.Id + ".\n" +
 			weekCount + " неделя " + parity + ".`";
 			return result;
 		}
 
-		public Responce Handle(Update update, RequestType request)
+		public Responce Handle(UserModel userModel, RequestType request)
 		{
-			UserModel userModel = _dataProvider.GetUserModel(update.Message);
 			Responce responce;
 			switch (request)
 			{
@@ -41,14 +40,14 @@ namespace Domain
 					{
 						responce = userModel.Student.Group == null
 							? new Responce(_keyboardService.GetKeyboardByRequest(request), "Стартовое меню.")
-							: new Responce(_keyboardService.GetKeyboardByRequest(RequestType.GroupMenu), GetGroupInfo(userModel));
+							: new Responce(_keyboardService.GetKeyboardByRequest(RequestType.GroupMenu), GetGroupInfo(userModel.Student.Group));
 						break;
 					}
 				case RequestType.Backward:
 					{
 						if(userModel.Requests.Count < 2)
-							return Handle(update, RequestType.Startup);
-						return Handle(update, userModel.Requests[userModel.Requests.Count - 2]);
+							return Handle(userModel, RequestType.Startup);
+						return Handle(userModel, userModel.Requests[userModel.Requests.Count - 2]);
 					}
 				case RequestType.CreateGroup:
 					{
@@ -63,7 +62,7 @@ namespace Domain
 						break;
 					}
 				case RequestType.GroupMenu:
-					responce = new Responce(_keyboardService.GetKeyboardByRequest(request), GetGroupInfo(userModel));
+					responce = new Responce(_keyboardService.GetKeyboardByRequest(request), GetGroupInfo(userModel.Student.Group));
 					break;
 				case RequestType.LeaveGroup:
 					{
@@ -118,7 +117,7 @@ namespace Domain
 
 		private Dictionary<Keyboard, ReplyMarkupBase> _keyboards;
 
-		public KeyboardService()
+		public KeyboardService(RequestRecognizer processingRequestRecognizer)
 		{
 			_keyboards = new Dictionary<Keyboard, ReplyMarkupBase>
 			{
@@ -131,7 +130,7 @@ namespace Domain
 				{
 					new KeyboardButton[]
 					{
-						new KeyboardButton(RequestService.GetMessageByRequest(RequestType.Backward)),
+						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.Backward)),
 					},
 				}
 			};
@@ -143,12 +142,12 @@ namespace Domain
 				{
 					new KeyboardButton[]
 					{
-						new KeyboardButton(RequestService.GetMessageByRequest(RequestType.CreateGroup)),
+						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.CreateGroup)),
 					},
 
 					new KeyboardButton[]
 					{
-						new KeyboardButton(RequestService.GetMessageByRequest(RequestType.JoinGroup))
+						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.JoinGroup))
 					},
 				}
 			};
@@ -160,7 +159,7 @@ namespace Domain
 				{
 					new KeyboardButton[]
 					{
-						new KeyboardButton(RequestService.GetMessageByRequest(RequestType.CreateGroup)),
+						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.CreateGroup)),
 					},
 				}
 			};
@@ -172,19 +171,19 @@ namespace Domain
 				{
 					new KeyboardButton[]
 					{
-						new KeyboardButton(RequestService.GetMessageByRequest(RequestType.LeaveGroup)),
+						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.LeaveGroup)),
 					},
 					new KeyboardButton[]
 					{
-						new KeyboardButton(RequestService.GetMessageByRequest(RequestType.WatchFullSchedule)),
+						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.WatchFullSchedule)),
 					},
 					new KeyboardButton[]
 					{
-						new KeyboardButton(RequestService.GetMessageByRequest(RequestType.WatchScheduleOnTomorrow)),
+						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.WatchScheduleOnTomorrow)),
 					},
 					new KeyboardButton[]
 					{
-						new KeyboardButton(RequestService.GetMessageByRequest(RequestType.WatchScheduleOnToday)),
+						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.WatchScheduleOnToday)),
 					},
 				}
 			};

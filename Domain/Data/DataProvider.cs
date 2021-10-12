@@ -4,26 +4,25 @@ using Database.Data.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Telegram.Bot;
 using Telegram.Bot.Types;
 
 namespace Domain.Data
 {
 	public class DataProvider
 	{
-		private const int _timeDifferent = 3;
+		private const int MoscowTimezone = 3;
 
 		private readonly DataContext _dataContext;
-		private readonly ITelegramBotClient _telegramBotClient;
 
-		private List<SubjectTimeSlot> _subjectCalls;
-		private Dictionary<long, UserModel> _cachedUserModels;
-		private Dictionary<UserModel, string> _creationGroup;
+		private readonly List<SubjectTimeSlot> _subjectCalls;
+		private readonly Dictionary<long, UserModel> _cachedUserModels;
+		private readonly Dictionary<UserModel, string> _creationGroup;
+		private readonly TelegramMessageSender _telegramMessageSender;
 
-		public DataProvider(DataContext dataContext, ITelegramBotClient telegramBotClient)
+		public DataProvider(DataContext dataContext, TelegramMessageSender telegramMessageSender)
 		{
 			_dataContext = dataContext ?? throw new ArgumentNullException(nameof(dataContext));
-			_telegramBotClient = telegramBotClient ?? throw new ArgumentNullException(nameof(telegramBotClient));
+			_telegramMessageSender = telegramMessageSender ?? throw new ArgumentNullException(nameof(telegramMessageSender));
 
 			_dataContext.Database.EnsureCreated();
 			_dataContext.LoadAll();
@@ -34,7 +33,7 @@ namespace Domain.Data
 			_creationGroup = new Dictionary<UserModel, string>();
 		}
 
-		public DateTime CorrectedDateTime => DateTime.Now.AddHours(_timeDifferent);
+		public DateTime MoscowDateTime => DateTime.UtcNow.AddHours(MoscowTimezone);
 
 		public UserModel GetUserModel(Message message)
 		{
@@ -50,7 +49,8 @@ namespace Domain.Data
 			UserModel result = new()
 			{
 				Student = student,
-				User = message.From
+				User = message.From,
+				ChatId = message.Chat.Id
 			};
 			_cachedUserModels.Add(message.From.Id, result);
 			return result;
@@ -94,38 +94,36 @@ namespace Domain.Data
 		{
 			schedule = default;
 			Group group = _dataContext.Groups.FirstOrDefault(x => x.Id == userModel.Student.Group.Id);
-			return group == null ? false : ScheduleViewReader.GetSchedule(userModel.Student.Group, CorrectedDateTime.AddDays(1), _subjectCalls, out schedule);
+			return group == null ? false : ScheduleViewReader.GetSchedule(userModel.Student.Group, MoscowDateTime.AddDays(1), _subjectCalls, out schedule);
 		}
 		public bool GetSheduleOnToday(UserModel userModel, out string schedule)
 		{
 			schedule = default;
 			Group group = _dataContext.Groups.FirstOrDefault(x => x.Id == userModel.Student.Group.Id);
-			return group == null ? false : ScheduleViewReader.GetSchedule(userModel.Student.Group, CorrectedDateTime, _subjectCalls, out schedule);
+			return group == null ? false : ScheduleViewReader.GetSchedule(userModel.Student.Group, MoscowDateTime, _subjectCalls, out schedule);
 		}
 
-		public void StartSubjectDateTimeNotificate(int order)
+		public void NotifyFirstSubjectStart(int timeSlotOrder)
 		{
 			foreach (Group group in _dataContext.Groups)
 			{
-				List<ScheduleView> schedule = ScheduleViewReader.GetSchedule(group, CorrectedDateTime.DayOfWeek, group.Parity(CorrectedDateTime));
-				ScheduleView subject = schedule.FirstOrDefault(x => x.Order == order);
+				List<ScheduleView> schedule = ScheduleViewReader.GetSchedule(group, MoscowDateTime.DayOfWeek, group.Parity(MoscowDateTime));
+				int firstSubjectTimeSlotOrder = schedule.Select(x => x.Order).Min();
+				if (firstSubjectTimeSlotOrder != timeSlotOrder)
+					continue;
+				ScheduleView subject = schedule.FirstOrDefault(x => x.Order == timeSlotOrder);
 				if (subject != null)
 				{
 					foreach (Student user in group.Students)
-						_telegramBotClient.SendTextMessageAsync(
-							user.ChatId,
-							"`Первая пара " + subject.SubjectInstance.Subject.Name + " " + ScheduleViewReader.GetSubjectTypeString(subject.SubjectInstance.SubjectType) +
-							" в " + subject.SubjectInstance.Audience + " аудитории. Ведёт " + subject.SubjectInstance.Teacher + "`.",
-							Telegram.Bot.Types.Enums.ParseMode.Markdown
-						);
+						_telegramMessageSender.NotifyFirstSubjectStart(user.ChatId, subject.SubjectInstance);
 				}
 			}
 		}
-		public void EndSubjectDateTimeNotificate(int order)
+		public void NotifySubjectEnd(int order)
 		{
 			foreach (Group group in _dataContext.Groups)
 			{
-				List<ScheduleView> schedule = ScheduleViewReader.GetSchedule(group, CorrectedDateTime.DayOfWeek, group.Parity(CorrectedDateTime));
+				List<ScheduleView> schedule = ScheduleViewReader.GetSchedule(group, MoscowDateTime.DayOfWeek, group.Parity(MoscowDateTime));
 				ScheduleView subject = schedule.FirstOrDefault(x => x.Order == order);
 				if (subject != null)
 				{
@@ -133,9 +131,9 @@ namespace Domain.Data
 					{
 						ScheduleView nextSubject = schedule.FirstOrDefault(z => z.Order == order + 1);
 						if (nextSubject != null)
-							_telegramBotClient.SendTextMessageAsync(user.ChatId, "`Пара " + subject.SubjectInstance.Subject.Name + " закончилась. Следующая пара " + nextSubject.SubjectInstance.Subject.Name + " " + ScheduleViewReader.GetSubjectTypeString(nextSubject.SubjectInstance.SubjectType) + " в " + nextSubject.SubjectInstance.Audience + " аудитории. Ведёт " + nextSubject.SubjectInstance.Teacher + "`.", Telegram.Bot.Types.Enums.ParseMode.Markdown);
+							_telegramMessageSender.NotifySubjectEnd(user.ChatId, subject.SubjectInstance, nextSubject.SubjectInstance);
 						else
-							_telegramBotClient.SendTextMessageAsync(user.ChatId, "`Пара " + subject.SubjectInstance.Subject.Name + " закончилась. Теперь домой!`", Telegram.Bot.Types.Enums.ParseMode.Markdown);
+							_telegramMessageSender.NotifySubjectEnd(user.ChatId, subject.SubjectInstance);
 					}
 				}
 			}
@@ -145,6 +143,7 @@ namespace Domain.Data
 	{
 		public Student Student { get; set; }
 		public User User { get; set; }
+		public long ChatId { get; set; }
 		public List<RequestType> Requests { get; } = new List<RequestType>();
 	}
 }

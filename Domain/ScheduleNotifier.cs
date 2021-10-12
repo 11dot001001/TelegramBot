@@ -9,16 +9,16 @@ namespace Domain
 {
 	public class ScheduleNotifier
 	{
-		private class NotificationData
+		private class DailyNotification
 		{
-			public NotificationData(DateTime dateTime, int order)
+			public DailyNotification(DateTime dateTime, int order)
 			{
 				DateTime = dateTime;
-				Order = order;
+				TimeSlotOrder = order;
 			}
 
 			public DateTime DateTime { get; set; }
-			public int Order { get; set; }
+			public int TimeSlotOrder { get; set; }
 			public bool IsNotified { get; set; }
 		}
 
@@ -28,8 +28,8 @@ namespace Domain
 		private readonly DataProvider _dataProvider;
 		private readonly DataContext _dataContext;
 		private readonly ILogger<ScheduleNotifier> _logger;
-		private readonly List<NotificationData> _startSubjectDateTimeNotifications;
-		private readonly List<NotificationData> _endSubjectDateTimeNotifications;
+		private readonly List<DailyNotification> _startSubjectDateTimeNotifications;
+		private readonly List<DailyNotification> _endSubjectDateTimeNotifications;
 		private DateTime _startToday;
 
 		public ScheduleNotifier(DataProvider dataProvider, DataContext dataContext, ILogger<ScheduleNotifier> logger)
@@ -38,43 +38,43 @@ namespace Domain
 			_dataContext = dataContext ?? throw new ArgumentNullException(nameof(dataContext));
 			_logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-			_startSubjectDateTimeNotifications = new List<NotificationData>();
-			_endSubjectDateTimeNotifications = new List<NotificationData>();
+			_startSubjectDateTimeNotifications = new List<DailyNotification>();
+			_endSubjectDateTimeNotifications = new List<DailyNotification>();
 		}
 
 		public void Notify()
 		{
-			if (_dataProvider.CorrectedDateTime.Day != _startToday.Day)
-				UpdateDateTimeNotifications();
+			if (_dataProvider.MoscowDateTime.Day != _startToday.Day)
+				UpdateDailyNotifications();
 
-			NotifyTimeSlotBound(_startSubjectDateTimeNotifications, _dataProvider.StartSubjectDateTimeNotificate);
-			NotifyTimeSlotBound(_endSubjectDateTimeNotifications, _dataProvider.EndSubjectDateTimeNotificate);
+			NotifyTimeSlotBound(_startSubjectDateTimeNotifications, _dataProvider.NotifyFirstSubjectStart);
+			NotifyTimeSlotBound(_endSubjectDateTimeNotifications, _dataProvider.NotifySubjectEnd);
 		}
 
-		private delegate void NotifySubjectTimeSlot(int order);
-		private void NotifyTimeSlotBound(IEnumerable<NotificationData> notifications, NotifySubjectTimeSlot notify)
+		private delegate void NotifySubjectTimeSlot(int timeSlotOrder);
+		private void NotifyTimeSlotBound(IEnumerable<DailyNotification> notifications, NotifySubjectTimeSlot notify)
 		{
-			foreach (NotificationData notificationData in notifications)
+			foreach (DailyNotification notificationData in notifications)
 			{
 				if (notificationData.IsNotified)
 					continue;
 
-				if (_dataProvider.CorrectedDateTime < notificationData.DateTime)
+				if (_dataProvider.MoscowDateTime < notificationData.DateTime)
 					continue;
 
-				notify(notificationData.Order);
+				notify(notificationData.TimeSlotOrder);
 				notificationData.IsNotified = true;
 			}
 		}
 		
-		private void UpdateDateTimeNotifications()
+		private void UpdateDailyNotifications()
 		{
 			_logger.LogInformation($"" +
-				$"Invoked {nameof(UpdateDateTimeNotifications)}. " +
-				$"{nameof(_dataProvider.CorrectedDateTime)}: {_dataProvider.CorrectedDateTime}. " +
+				$"Invoked {nameof(UpdateDailyNotifications)}. " +
+				$"{nameof(_dataProvider.MoscowDateTime)}: {_dataProvider.MoscowDateTime}. " +
 				$"{nameof(_startToday)}: {_startToday}. "
 			);
-			_startToday = _dataProvider.CorrectedDateTime.Date;
+			_startToday = _dataProvider.MoscowDateTime.Date;
 			_startSubjectDateTimeNotifications.Clear();
 			_endSubjectDateTimeNotifications.Clear();
 			List<SubjectTimeSlot> subjectTimeSlots = new(_dataContext.SubjectTimeSlots);
@@ -84,14 +84,14 @@ namespace Domain
 				DateTime startLessonTime = _startToday.Add(timeSlot.Start - BeforehandTime);
 				DateTime endLessonTime = _startToday.Add(timeSlot.End);
 
-				if ((_dataProvider.CorrectedDateTime - startLessonTime) < DeltaTime)
+				if ((_dataProvider.MoscowDateTime - startLessonTime) < DeltaTime)
 				{
-					_startSubjectDateTimeNotifications.Add(new NotificationData(startLessonTime, timeSlot.Order));
+					_startSubjectDateTimeNotifications.Add(new DailyNotification(startLessonTime, timeSlot.Order));
 					_logger.LogInformation($"Added daily start timeSlot notification at {startLessonTime}.");
 				}
-				if ((_dataProvider.CorrectedDateTime - endLessonTime) < DeltaTime)
+				if ((_dataProvider.MoscowDateTime - endLessonTime) < DeltaTime)
 				{
-					_endSubjectDateTimeNotifications.Add(new NotificationData(endLessonTime, timeSlot.Order));
+					_endSubjectDateTimeNotifications.Add(new DailyNotification(endLessonTime, timeSlot.Order));
 					_logger.LogInformation($"Added daily end timeSlot notification at {endLessonTime}.");
 				}
 			}

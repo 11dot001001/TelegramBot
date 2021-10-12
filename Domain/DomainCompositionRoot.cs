@@ -12,7 +12,9 @@ namespace Domain
 			services.AddSingleton<TelegramMessageHandler>();
 			services.AddSingleton<KeyboardService>();
 			services.AddSingleton<ScheduleNotifier>();
-
+			services.AddSingleton<RequestRecognizer>();
+			services.AddSingleton<TelegramMessageSender>();
+			
 			return services;
 		}
 	}

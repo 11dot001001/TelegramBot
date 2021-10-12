@@ -1,4 +1,4 @@
-﻿using Data;
+﻿using Data.Initializers;
 using Database.Data.Model;
 using Microsoft.EntityFrameworkCore;
 using System;
