@@ -83,7 +83,7 @@ namespace Domain
 			return _telegramBotClient.SendTextMessageAsync(userModel.ChatId, "Введите дату по форме 27/5/2021 .");
 		}
 		public Task SendDateInputError(UserModel userModel)
-		{ 
+		{
 			return _telegramBotClient.SendTextMessageAsync(userModel.ChatId, "Ошибка ввода даты.");
 		}
 	}

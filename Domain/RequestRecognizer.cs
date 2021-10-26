@@ -16,7 +16,7 @@ namespace Domain
 			new (RequestType.WatchScheduleOnToday, "Расписание на сегодня.")
 		};
 
-		public bool TryGetRequestTypeByMessage(string message, out RequestType request)
+		public bool TryGetRequestType(string message, out RequestType request)
 		{
 			request = RequestType.None;
 
@@ -28,7 +28,7 @@ namespace Domain
 			request = requestTypeMessage.Type;
 			return true;
 		}
-		public string GetMessageByRequestType(RequestType request)
+		public string GetMessage(RequestType request)
 		{
 			return _requestTypeMessages.First(x => x.Type == request).Message;
 		}

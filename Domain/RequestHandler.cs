@@ -45,7 +45,7 @@ namespace Domain
 					}
 				case RequestType.Backward:
 					{
-						if(userModel.Requests.Count < 2)
+						if (userModel.Requests.Count < 2)
 							return Handle(userModel, RequestType.Startup);
 						return Handle(userModel, userModel.Requests[userModel.Requests.Count - 2]);
 					}
@@ -115,80 +115,74 @@ namespace Domain
 	{
 		private enum Keyboard { None, Backward, StartMenu, CreateGroup, GroupMenu }
 
-		private Dictionary<Keyboard, ReplyMarkupBase> _keyboards;
+		private readonly Dictionary<Keyboard, ReplyMarkupBase> _keyboards;
 
-		public KeyboardService(RequestRecognizer processingRequestRecognizer)
+		public KeyboardService(RequestRecognizer requestRecognizer)
 		{
 			_keyboards = new Dictionary<Keyboard, ReplyMarkupBase>
 			{
-				{ Keyboard.None, new ReplyKeyboardRemove() { Selective = true } }
-			};
-
-			ReplyKeyboardMarkup backward = new ReplyKeyboardMarkup
-			{
-				Keyboard = new KeyboardButton[][]
+				[Keyboard.None] = new ReplyKeyboardRemove() { Selective = true },
+				[Keyboard.Backward] = new ReplyKeyboardMarkup
 				{
-					new KeyboardButton[]
+					Keyboard = new KeyboardButton[][]
 					{
-						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.Backward)),
+						new KeyboardButton[]
+						{
+							new KeyboardButton(requestRecognizer.GetMessage(RequestType.Backward)),
+						},
 					},
+					ResizeKeyboard = true
+				},
+				[Keyboard.StartMenu] = new ReplyKeyboardMarkup
+				{
+					Keyboard = new KeyboardButton[][]
+					{
+						new KeyboardButton[]
+						{
+							new KeyboardButton(requestRecognizer.GetMessage(RequestType.CreateGroup)),
+						},
+						new KeyboardButton[]
+						{
+							new KeyboardButton(requestRecognizer.GetMessage(RequestType.JoinGroup))
+						},
+					},
+					ResizeKeyboard = true
+				},
+				[Keyboard.CreateGroup] = new ReplyKeyboardMarkup
+				{
+					Keyboard = new KeyboardButton[][]
+					{
+						new KeyboardButton[]
+						{
+							new KeyboardButton(requestRecognizer.GetMessage(RequestType.CreateGroup)),
+						},
+					},
+					ResizeKeyboard = true
+				},
+				[Keyboard.GroupMenu] = new ReplyKeyboardMarkup
+				{
+					Keyboard = new KeyboardButton[][]
+					{
+						new KeyboardButton[]
+						{
+							new KeyboardButton(requestRecognizer.GetMessage(RequestType.LeaveGroup)),
+						},
+						new KeyboardButton[]
+						{
+							new KeyboardButton(requestRecognizer.GetMessage(RequestType.WatchFullSchedule)),
+						},
+						new KeyboardButton[]
+						{
+							new KeyboardButton(requestRecognizer.GetMessage(RequestType.WatchScheduleOnTomorrow)),
+						},
+						new KeyboardButton[]
+						{
+							new KeyboardButton(requestRecognizer.GetMessage(RequestType.WatchScheduleOnToday)),
+						},
+					},
+					ResizeKeyboard = true
 				}
 			};
-			backward.ResizeKeyboard = true;
-			_keyboards.Add(Keyboard.Backward, backward);
-			ReplyKeyboardMarkup startMenu = new ReplyKeyboardMarkup
-			{
-				Keyboard = new KeyboardButton[][]
-				{
-					new KeyboardButton[]
-					{
-						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.CreateGroup)),
-					},
-
-					new KeyboardButton[]
-					{
-						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.JoinGroup))
-					},
-				}
-			};
-			startMenu.ResizeKeyboard = true;
-			_keyboards.Add(Keyboard.StartMenu, startMenu);
-			ReplyKeyboardMarkup createGroupMenu = new ReplyKeyboardMarkup
-			{
-				Keyboard = new KeyboardButton[][]
-				{
-					new KeyboardButton[]
-					{
-						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.CreateGroup)),
-					},
-				}
-			};
-			createGroupMenu.ResizeKeyboard = true;
-			_keyboards.Add(Keyboard.CreateGroup, createGroupMenu);
-			ReplyKeyboardMarkup groupMenu = new ReplyKeyboardMarkup
-			{
-				Keyboard = new KeyboardButton[][]
-				{
-					new KeyboardButton[]
-					{
-						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.LeaveGroup)),
-					},
-					new KeyboardButton[]
-					{
-						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.WatchFullSchedule)),
-					},
-					new KeyboardButton[]
-					{
-						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.WatchScheduleOnTomorrow)),
-					},
-					new KeyboardButton[]
-					{
-						new KeyboardButton(processingRequestRecognizer.GetMessageByRequestType(RequestType.WatchScheduleOnToday)),
-					},
-				}
-			};
-			groupMenu.ResizeKeyboard = true;
-			_keyboards.Add(Keyboard.GroupMenu, groupMenu);
 		}
 
 		public ReplyMarkupBase GetKeyboardByRequest(RequestType request)

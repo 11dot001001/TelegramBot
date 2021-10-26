@@ -25,7 +25,14 @@ namespace Api.HostedServices
 			for (; !stoppingToken.IsCancellationRequested;)
 			{
 				_logger.LogInformation($"Start schedule notifications.");
-				_scheduleNotifier.Notify();
+				try
+				{
+					_scheduleNotifier.Notify();
+				}
+				catch (Exception exception)
+				{
+					Console.WriteLine(exception);
+				}
 				_logger.LogInformation($"End schedule notifications.");
 				await Task.Delay(UpdateTimer, stoppingToken);
 			}

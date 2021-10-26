@@ -26,7 +26,7 @@ namespace Domain
 
 			UserModel userModel = _dataProvider.GetUserModel(update.Message);
 
-			if (_requestRecognizer.TryGetRequestTypeByMessage(update.Message.Text, out RequestType request))
+			if (_requestRecognizer.TryGetRequestType(update.Message.Text, out RequestType request))
 			{
 				await _telegramMessageSender.SendMessage(userModel, request);
 			}

@@ -17,12 +17,10 @@ namespace Domain.Data
 		private readonly List<SubjectTimeSlot> _subjectCalls;
 		private readonly Dictionary<long, UserModel> _cachedUserModels;
 		private readonly Dictionary<UserModel, string> _creationGroup;
-		private readonly TelegramMessageSender _telegramMessageSender;
 
-		public DataProvider(DataContext dataContext, TelegramMessageSender telegramMessageSender)
+		public DataProvider(DataContext dataContext)
 		{
 			_dataContext = dataContext ?? throw new ArgumentNullException(nameof(dataContext));
-			_telegramMessageSender = telegramMessageSender ?? throw new ArgumentNullException(nameof(telegramMessageSender));
 
 			_dataContext.Database.EnsureCreated();
 			_dataContext.LoadAll();
@@ -101,42 +99,6 @@ namespace Domain.Data
 			schedule = default;
 			Group group = _dataContext.Groups.FirstOrDefault(x => x.Id == userModel.Student.Group.Id);
 			return group == null ? false : ScheduleViewReader.GetSchedule(userModel.Student.Group, MoscowDateTime, _subjectCalls, out schedule);
-		}
-
-		public void NotifyFirstSubjectStart(int timeSlotOrder)
-		{
-			foreach (Group group in _dataContext.Groups)
-			{
-				List<ScheduleView> schedule = ScheduleViewReader.GetSchedule(group, MoscowDateTime.DayOfWeek, group.Parity(MoscowDateTime));
-				int firstSubjectTimeSlotOrder = schedule.Select(x => x.Order).Min();
-				if (firstSubjectTimeSlotOrder != timeSlotOrder)
-					continue;
-				ScheduleView subject = schedule.FirstOrDefault(x => x.Order == timeSlotOrder);
-				if (subject != null)
-				{
-					foreach (Student user in group.Students)
-						_telegramMessageSender.NotifyFirstSubjectStart(user.ChatId, subject.SubjectInstance);
-				}
-			}
-		}
-		public void NotifySubjectEnd(int order)
-		{
-			foreach (Group group in _dataContext.Groups)
-			{
-				List<ScheduleView> schedule = ScheduleViewReader.GetSchedule(group, MoscowDateTime.DayOfWeek, group.Parity(MoscowDateTime));
-				ScheduleView subject = schedule.FirstOrDefault(x => x.Order == order);
-				if (subject != null)
-				{
-					foreach (Student user in group.Students)
-					{
-						ScheduleView nextSubject = schedule.FirstOrDefault(z => z.Order == order + 1);
-						if (nextSubject != null)
-							_telegramMessageSender.NotifySubjectEnd(user.ChatId, subject.SubjectInstance, nextSubject.SubjectInstance);
-						else
-							_telegramMessageSender.NotifySubjectEnd(user.ChatId, subject.SubjectInstance);
-					}
-				}
-			}
 		}
 	}
 	public class UserModel
